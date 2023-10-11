@@ -26,6 +26,8 @@
 ---
 ### Project Setup
 - Install [PlatformIO](https://platformio.org/platformio-ide) into your VSCode
+- You will also need to install the drivers for the SiLabs CP210x Drivers to communicate with the ESP32 over UART 
+    - [CP210X Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
 - Libraries: 
     - [PN532](https://github.com/elechouse/PN532)
     - [HTTP Client](https://github.com/amcewen/HttpClient)
