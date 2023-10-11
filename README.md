@@ -26,7 +26,9 @@
 ---
 ### Project Setup
 - Install [PlatformIO](https://platformio.org/platformio-ide) into your VSCode
-- More details to come....
+- Libraries: 
+    - [PN532](https://github.com/elechouse/PN532)
+    - [HTTP Client](https://github.com/amcewen/HttpClient)
 
 
 ---
