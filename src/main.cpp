@@ -45,19 +45,6 @@ void init_wifi(void) {
 WiFiClient client;
 
 /**
- * Fill buffer until a space is read from client or size is reached.
-*/
-void read_until_space(char * buf, size_t size) {
-  int i = 0;
-  while(buf[i-1] != ' ' && i < size){
-    while(!client.available()) {}
-    buf[i] = client.read();
-    i++;
-  }
-  buf[i-1] = '\0'; // replace space
-}
-
-/**
  * Make a request to the server.
 */
 int query_server(int num) {
@@ -91,14 +78,14 @@ int query_server(int num) {
   return status_code;
 }
 
-void setup(void) {
+void setup() {
   Serial.begin(115200);
   Serial.println("Initializing...");
 
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata) {
+  if (!versiondata) {
     Serial.print("Didn't find PN53x board \n");
     Serial.print("Restarting in 10 seconds \n");
     delay(10000);
@@ -120,7 +107,7 @@ void setup(void) {
 }
 
 
-void loop(void) {
+void loop() {
   Serial.println("Scanning for card...");
   
   uint8_t success;
