@@ -1,25 +1,26 @@
+
+// include/configure.h
+#include "configure.h"
+
+// Arduino
+#include <WiFi.h>
 #include <Wire.h>
+
+// rfid-door-lock/lib
 #include <PN532_I2C.h>
 #include <PN532.h>
 
-#include <WiFi.h>
-
-#define REQUEST_STRING "GET / HTTP/1.1\r\nHost:google.com\r\n\r\n"
-
-const char * ssid = "no"; // WIFI NAME
-const char * password = "123456789"; // WIFI PASSWORD
 
 PN532_I2C pn532i2c(Wire);
 PN532 nfc(pn532i2c);	
-IPAddress server = IPAddress(142,251,46,238);
 
 // WifiClient client;
 // Im pretty sure this is c++. void in the param is unnecessary.
 void init_wifi(void) {
   Serial.print("\n\nConnecting to ");
-  Serial.print(ssid);
+  Serial.print(WIFI_SSID);
   Serial.print(" ...\n");
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int retries = 15;
   while((WiFi.status() != WL_CONNECTED) && retries) {
     retries--;
@@ -56,7 +57,8 @@ void read_until_space(char * buf, size_t size) {
  * Make a request to the server.
 */
 int query_server(int num) {
-  if(!client.connect(server, 80)){      // <<<<<< fixed
+  IPAddress server = SERVER_IP;
+  if(!client.connect(server, 80)) {
     Serial.println("Could not connect to server!");
     delay(1000);
     return -1;
@@ -70,7 +72,7 @@ int query_server(int num) {
 
   // HTTP/1.1 200 OK
   // [version] [status code] [status reason]
-  char buf[20];
+  char buf[RESPONSE_BUFFER_SIZE];
   read_until_space(buf, sizeof(buf));
   Serial.print("HTTP Version: "); Serial.println(buf);
   read_until_space(buf, sizeof(buf));
