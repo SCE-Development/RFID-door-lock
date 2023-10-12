@@ -124,10 +124,10 @@ http::error http::internal::read_until_character(char * buf, size_t size, unsign
 
   unsigned long start = millis();
 
-
+// SD1306
   while(curr != c){
     // Keep reading even when buffer is full. This will truncate the output, but if the method would end early, other http::get_* will be in the wrong position to parse.
-    if(i < (size - 1)) {
+    if(i < (size - 1) && curr != 0) {
       buf[i] = curr;
       i++;
     }
@@ -156,7 +156,7 @@ http::error http::internal::read_until_crlf(char * buf, size_t size, unsigned lo
 
   while(!(second_curr == '\r' && curr == '\n')){
     // Keep reading even when buffer is full. This will truncate the output, but if the method would end early, other http::get_* will be in the wrong position to parse.
-    if(i < (size - 1)) {
+    if(i < (size - 1) && second_curr != 0) {
       buf[i] = second_curr;
       i++;
     }
@@ -212,7 +212,7 @@ http::error get_next_header(char * key, size_t key_size, char * value, size_t va
 
   while(!(second_curr == '\r' && curr == '\n') || !(second_curr == ':')){
     // Keep reading even when buffer is full. This will truncate the output, but if the method would end early, other http::get_* will be in the wrong position to parse.
-    if(i < (key_size - 1)) {
+    if(i < (key_size - 1) && second_curr != 0) {
       key[i] = second_curr;
       i++;
     }
@@ -232,7 +232,7 @@ http::error get_next_header(char * key, size_t key_size, char * value, size_t va
 
   while(!(second_curr == '\r' && curr == '\n')){
     // Keep reading even when buffer is full. This will truncate the output, but if the method would end early, other http::get_* will be in the wrong position to parse.
-    if(i < (value_size - 1)) {
+    if(i < (value_size - 1) && second_curr != 0) {
       value[i] = second_curr;
       i++;
     }
