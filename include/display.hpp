@@ -123,7 +123,7 @@ void display_error() {
   display.print("Couldn't read");
   display.setTextSize(1);
   display.setCursor(0, 17);
-  display.print("Try again in a second");
+  display.print("Try again in three seconds");
   display.display();
 }
 

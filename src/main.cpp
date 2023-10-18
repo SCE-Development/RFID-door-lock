@@ -1,10 +1,12 @@
 /**
  * TODO we could hook up the serial to the server (Write serial output to a server connection)
  * TODO Maybe split display code into a seperate header file
- * 
+ * TODO maybe wait for user to remove card before performing authentication.
  */
-// include/configure.h
+
 #include <Arduino.h>
+
+
 #include "configure.h"
 
 // Arduino
@@ -21,11 +23,10 @@
 PN532_I2C pn532i2c(Wire);
 PN532 nfc(pn532i2c);
 
-
 /**
  * Initialize wifi on the esp.
 */
-void init_wifi() {
+bool init_wifi() {
   Serial.print("\n\nConnecting to ");
   Serial.print(WIFI_SSID);
   Serial.print(" ...\n");
@@ -39,9 +40,11 @@ void init_wifi() {
 
   if(retries == 0) {
     Serial.println("FAILED to connect to wifi.\n");
+    return false;
   }else {
     Serial.print("Wifi connected!\nIP Address: ");
     Serial.println(WiFi.localIP());
+    return true;
   }
 }
 
@@ -85,18 +88,17 @@ int query_server(int num) {
 
 
 
-
-void init_pn532() {
+/**
+ * Initialize PN532
+ * returns false on failure.
+*/
+bool init_pn532() {
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
     Serial.print("Didn't find PN532 board \n");
-    Serial.print("Restarting in 10 seconds \n");
-    delay(10000);
-    Serial.print("Standby");
-
-    ESP.restart(); // ABORT
+    return false;
   }
   // Got ok data, print it out!
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
@@ -105,6 +107,8 @@ void init_pn532() {
   
   // configure board to read RFID tags
   nfc.SAMConfig();
+
+  return true;
 }
 
 void setup() {
@@ -124,33 +128,46 @@ void setup() {
   // query_server(0);
 }
 
+struct card_info {
+  uint8_t uid[7];
+  uint8_t uid_length;
+  uint8_t data[32];
+};
 
-bool read_card(uint8_t * uid, uint8_t& uid_length, uint8_t * data, uint8_t n_pages) {
+
+enum card_error {
+  ok = 0,
+  pn532_error=-1,
+  invalid_card_type=-2,
+};
+
+card_error read_card(card_info& card) {
 
   uint8_t success;
 
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length);
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, card.uid, &card.uid_length);
 
   if(!success) {
+    Serial.println("Error when passive reading");
     display_error();
-    return false;
+    return card_error::pn532_error;
   }
 
-  if(uid_length != 7) {
+  if(card.uid_length != 7) {
     // Reject invalid card types.
-
+    Serial.println("Invalid card type");
     display_error();
-    return false;
+    return card_error::invalid_card_type;
   }
 
   // Display some basic information about the card
   Serial.println("Found an ISO14443A card");
-  Serial.print("  UID Length: ");Serial.print(uid_length, DEC);Serial.println(" bytes");
+  Serial.print("  UID Length: ");Serial.print(card.uid_length, DEC);Serial.println(" bytes");
   Serial.print("  UID Value: ");
-  nfc.PrintHex(uid, uid_length);
+  nfc.PrintHex(card.uid, card.uid_length);
   Serial.println();
 
 
@@ -158,49 +175,63 @@ bool read_card(uint8_t * uid, uint8_t& uid_length, uint8_t * data, uint8_t n_pag
   Serial.println("Card Details: Mifare Ultralight Tag (7 byte UID)");
 
   Serial.println("Reading pages");
-
-  for(int i = 0; i < n_pages; i ++) {
-    success = nfc.mifareultralight_ReadPage (i, data + i * 4);
+  for(int i = 0; i < (sizeof(card.data) / 4); i ++) {
+    success = nfc.mifareultralight_ReadPage (i, card.data + i * 4);
     if(!success) {
       Serial.print("Error reading page ");
       Serial.println(i, DEC);
+
       display_error();
-      return false;
+      return card_error::pn532_error;
     }
   }
 
-
-  return true;
+  return card_error::ok;
 }
 
-/// @brief Auth code will go here.
-bool authenticate(uint8_t * uid, uint8_t *  data) {
+enum auth_result {
+  auth_success = 1,
+  auth_reject = 0,
+  auth_error = -1,
+};
 
-  return true;
+/**
+ * Perform authentication based on card info.
+ * 
+ * Returns success, reject, or error.
+ */
+auth_result authenticate(card_info& card) {
+
+  return auth_result::auth_success;
 }
 
 void loop() {
   display_ready();
   Serial.println("Scanning for card...");
   
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uid_length;
-  uint8_t n_pages = 8;
-  uint8_t data[32]; // n_pages * 4 bytes per page
 
-  if(!read_card(uid, uid_length, data, n_pages)) {
+  card_info card;
+
+  if(!read_card(card) != card_error::ok) {
     /// error.
-    delay(3000);
+    delay(5000);
     return;
   }
   display_authenticating();
-  if(authenticate(uid, data)) {
-    // Authenticated.
+
+  switch(authenticate(card)) {
+  case auth_success:
     display_auth_success();
-  }else {
-    // Failed
+    break;
+  case auth_reject:
     display_auth_fail();
+    break;
+  case auth_error:
+    display_error();
+    break;
   }
-  delay(2000);
+
+  
+  delay(5000);
 }
 
