@@ -1,4 +1,8 @@
-
+/**
+ * TODO we could hook up the serial to the server (Write serial output to a server connection)
+ * TODO Maybe split display code into a seperate header file
+ * 
+ */
 // include/configure.h
 #include <Arduino.h>
 #include "configure.h"
@@ -18,9 +22,11 @@
 PN532_I2C pn532i2c(Wire);
 PN532 nfc(pn532i2c);	
 
+Adafruit_SSD1306 display;
+
 // WifiClient client;
 // Im pretty sure this is c++. void in the param is unnecessary.
-void init_wifi(void) {
+void init_wifi() {
   Serial.print("\n\nConnecting to ");
   Serial.print(WIFI_SSID);
   Serial.print(" ...\n");
@@ -73,24 +79,109 @@ int query_server(int num) {
   http::get_status_reason(buf, sizeof(buf), 1000, client);
   Serial.print("Status Reason: "); Serial.println(buf);
   
-  Serial.println("----- END SERVER -----");
+  Serial.println("----- END SERVER RESPONSE -----");
 
   return status_code;
 }
 
-void setup() {
-  Serial.begin(115200);
-  Serial.println("Initializing...");
 
+void display_init_status(const char * status) {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("RFID Lock");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print(status);
+  display.display();
+
+}
+
+void display_ready() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Ready!");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print("Tap your card on the");
+  display.setCursor(0, 24);
+  display.print("reader.");
+  display.display();
+}
+
+void display_reading() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Reading!");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print("Keep it over the");
+  display.setCursor(0, 24);
+  display.print("reader.");
+  display.display();
+}
+
+
+char hex(uint8_t a) {
+    if(a >= 10) return a - 10 + 'A';
+    return a + '0';
+}
+
+void display_hex(uint8_t n) {
+  display.print(hex(n >> 4));
+  display.print(hex(n & 0x0F));
+}
+
+void display_uid(uint8_t * uid, uint8_t length) {
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Reading!");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print("UID: 0x");
+  for(int i = 0 ; i < length; i ++) {
+    display_hex(uid[i]);
+  }
+
+  display.display();
+}
+
+void display_error() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Couldn't read");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print("Try again in a second");
+  display.display();
+}
+
+void init_display() {
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+}
+
+
+void init_pn532() {
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
-    Serial.print("Didn't find PN53x board \n");
+    Serial.print("Didn't find PN532 board \n");
     Serial.print("Restarting in 10 seconds \n");
     delay(10000);
     Serial.print("Standby");
-    ESP.restart();
+
+    ESP.restart(); // ABORT
   }
   // Got ok data, print it out!
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
@@ -99,106 +190,95 @@ void setup() {
   
   // configure board to read RFID tags
   nfc.SAMConfig();
+}
 
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Initializing...");
 
-  init_wifi();
+  init_display();
+  display_init_status("Initializing lock...");
+  delay(500);
+  init_pn532();
+  display_init_status("Finding Auth Server ...");
+  delay(500);
+  // init_wifi();
+  display_init_status("Finished init!");
+  delay(5000);
 
-  query_server(0);
+  // query_server(0);
 }
 
 
-void loop() {
-  Serial.println("Scanning for card...");
-  
+bool read_card(uint8_t * uid, uint8_t& uid_length, uint8_t * data, uint8_t n_pages) {
+
   uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-    
+
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-  
-  if (success) {
-    // Display some basic information about the card
-    Serial.println("Found an ISO14443A card");
-    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-    Serial.print("  UID Value: ");
-    nfc.PrintHex(uid, uidLength);
-    Serial.println("");
-    
-    if (uidLength == 4)
-    {
-      // We probably have a Mifare Classic card ... 
-      Serial.println("Card Details: Mifare Classic Card (4 byte UID)");
-	  
-      // Now we need to try to authenticate it for read/write access
-      // Try with the factory default KeyA: 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
-      Serial.println("Trying to authenticate block 4 with default KEYA value");
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-	  
-	  // Start with block 4 (the first block of sector 1) since sector 0
-	  // contains the manufacturer data and it's probably better just
-	  // to leave it alone unless you know what you're doing
-      success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, 4, 0, keya);
-	  
-      if (success)
-      {
-        Serial.println("Sector 1 (Blocks 4..7) has been authenticated");
-        uint8_t data[16];
-		
-        // If you want to write something to block 4 to test with, uncomment
-		    // the following line and this text should be read back in a minute
-        // data = { 'a', 'd', 'a', 'f', 'r', 'u', 'i', 't', '.', 'c', 'o', 'm', 0, 0, 0, 0};
-        // success = nfc.mifareclassic_WriteDataBlock (4, data);
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length);
 
-        // Try to read the contents of block 4
-        success = nfc.mifareclassic_ReadDataBlock(4, data);
-		
-        if (success)
-        {
-          // Data seems to have been read ... spit it out
-          Serial.println("Reading Block 4:");
-          nfc.PrintHexChar(data, 16);
-          Serial.println("");
-		  
-          // Wait a bit before reading the card again
-          delay(1000);
-        }
-        else
-        {
-          Serial.println("Ooops ... unable to read the requested block.  Try another key?");
-        }
-      }
-      else
-      {
-        Serial.println("Ooops ... authentication failed: Try another key?");
-      }
+  if(!success) {
+    display_error();
+    return false;
+  }
+
+  if(uid_length != 7) {
+    // Reject invalid card types.
+
+    display_error();
+    return false;
+  }
+
+  // Display some basic information about the card
+  Serial.println("Found an ISO14443A card");
+  Serial.print("  UID Length: ");Serial.print(uid_length, DEC);Serial.println(" bytes");
+  Serial.print("  UID Value: ");
+  nfc.PrintHex(uid, uid_length);
+  Serial.println();
+
+
+  // We probably have a Mifare Ultralight card ...
+  Serial.println("Card Details: Mifare Ultralight Tag (7 byte UID)");
+
+  Serial.println("Reading pages");
+
+  for(int i = 0; i < n_pages; i ++) {
+    success = nfc.mifareultralight_ReadPage (i, data + i * 4);
+    if(!success) {
+      Serial.print("Error reading page ");
+      Serial.println(i, DEC);
+      display_error();
+      return false;
     }
+  }
+
+
+
+}
+
+/// @brief Auth code will go here.
+bool authenticate(uint8_t * uid, uint8_t *  data) {
+
+}
+
+void loop() {
+  display_ready();
+  Serial.println("Scanning for card...");
+  
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uid_length;
+  uint8_t n_pages = 8;
+  uint8_t data[32]; // n_pages * 4 bytes per page
+
+  if(!read_card(uid, uid_length, data, n_pages)) {
+    /// error.
+    return;
+  }
+
+  if(authenticate(uid, data)) {
     
-    if (uidLength == 7)
-    {
-      // We probably have a Mifare Ultralight card ...
-      Serial.println("Card Details: Mifare Ultralight Tag (7 byte UID)");
-	  
-      // Try to read the first general-purpose user page (#4)
-      Serial.println("Reading page 4");
-      uint8_t data[32];
-      success = nfc.mifareultralight_ReadPage (4, data);
-      if (success)
-      {
-        // Data seems to have been read ... spit it out
-        nfc.PrintHexChar(data, 4);
-        Serial.println("");
-		
-        // Wait a bit before reading the card again
-        delay(1000);
-      }
-      else
-      {
-        Serial.println("Ooops ... unable to read the requested page!?");
-      }
-    }
   }
 }
 
