@@ -154,6 +154,47 @@ void display_uid(uint8_t * uid, uint8_t length) {
   display.display();
 }
 
+void display_authenticating() {
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Authenticating ...");
+  display.setTextSize(1);
+  display.setCursor(0, 9);
+  display.print("Wait a moment.");
+  display.display();
+
+}
+
+void display_auth_success() {
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Authenticated!");
+  display.setTextSize(1);
+  display.setCursor(0, 9);
+  display.print("Opening door ...");
+  display.display();
+
+}
+
+void display_auth_fail() {
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Access denied!");
+  // display.setTextSize(1);
+  // display.setCursor(0, 17);
+  // display.print("Opening door ...");
+  display.display();
+}
+
 void display_error() {
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -255,12 +296,13 @@ bool read_card(uint8_t * uid, uint8_t& uid_length, uint8_t * data, uint8_t n_pag
   }
 
 
-
+  return true;
 }
 
 /// @brief Auth code will go here.
 bool authenticate(uint8_t * uid, uint8_t *  data) {
 
+  return true;
 }
 
 void loop() {
@@ -274,11 +316,17 @@ void loop() {
 
   if(!read_card(uid, uid_length, data, n_pages)) {
     /// error.
+    delay(3000);
     return;
   }
-
+  display_authenticating();
   if(authenticate(uid, data)) {
-    
+    // Authenticated.
+    display_auth_success();
+  }else {
+    // Failed
+    display_auth_fail();
   }
+  delay(2000);
 }
 
