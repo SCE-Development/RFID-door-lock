@@ -14,18 +14,17 @@
 // rfid-door-lock/lib
 #include <PN532_I2C.h>
 #include <PN532.h>
-
-#include <Adafruit_SSD1306.h>
+#include <display.hpp>
 
 #include <http.hpp>
 
 PN532_I2C pn532i2c(Wire);
-PN532 nfc(pn532i2c);	
+PN532 nfc(pn532i2c);
 
-Adafruit_SSD1306 display;
 
-// WifiClient client;
-// Im pretty sure this is c++. void in the param is unnecessary.
+/**
+ * Initialize wifi on the esp.
+*/
 void init_wifi() {
   Serial.print("\n\nConnecting to ");
   Serial.print(WIFI_SSID);
@@ -48,12 +47,12 @@ void init_wifi() {
 
 
 
-WiFiClient client;
 
 /**
  * Make a request to the server.
 */
 int query_server(int num) {
+  WiFiClient client;
   IPAddress server = SERVER_IP;
   if(!client.connect(server, 80)) {
     Serial.println("Could not connect to server!");
@@ -85,131 +84,6 @@ int query_server(int num) {
 }
 
 
-void display_init_status(const char * status) {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("RFID Lock");
-  display.setTextSize(1);
-  display.setCursor(0, 17);
-  display.print(status);
-  display.display();
-
-}
-
-void display_ready() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Ready!");
-  display.setTextSize(1);
-  display.setCursor(0, 17);
-  display.print("Tap your card on the");
-  display.setCursor(0, 24);
-  display.print("reader.");
-  display.display();
-}
-
-void display_reading() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Reading!");
-  display.setTextSize(1);
-  display.setCursor(0, 17);
-  display.print("Keep it over the");
-  display.setCursor(0, 24);
-  display.print("reader.");
-  display.display();
-}
-
-
-char hex(uint8_t a) {
-    if(a >= 10) return a - 10 + 'A';
-    return a + '0';
-}
-
-void display_hex(uint8_t n) {
-  display.print(hex(n >> 4));
-  display.print(hex(n & 0x0F));
-}
-
-void display_uid(uint8_t * uid, uint8_t length) {
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Reading!");
-  display.setTextSize(1);
-  display.setCursor(0, 17);
-  display.print("UID: 0x");
-  for(int i = 0 ; i < length; i ++) {
-    display_hex(uid[i]);
-  }
-
-  display.display();
-}
-
-void display_authenticating() {
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Authenticating ...");
-  display.setTextSize(1);
-  display.setCursor(0, 9);
-  display.print("Wait a moment.");
-  display.display();
-
-}
-
-void display_auth_success() {
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Authenticated!");
-  display.setTextSize(1);
-  display.setCursor(0, 9);
-  display.print("Opening door ...");
-  display.display();
-
-}
-
-void display_auth_fail() {
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Access denied!");
-  // display.setTextSize(1);
-  // display.setCursor(0, 17);
-  // display.print("Opening door ...");
-  display.display();
-}
-
-void display_error() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.print("Couldn't read");
-  display.setTextSize(1);
-  display.setCursor(0, 17);
-  display.print("Try again in a second");
-  display.display();
-}
-
-void init_display() {
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-}
 
 
 void init_pn532() {
