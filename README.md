@@ -65,3 +65,34 @@ OLED
     - In the access denied, display the "Denied" onto the OLED Display. 
 
 </details>
+
+---
+### Running Evan's Server
+- [ ] make sure you have python on your computer
+- [ ] create a virtual environment with
+```
+cd server
+mkdir venv
+python -m venv ./venv
+source ./venv/bin/activate
+```
+- [ ] install fastapi in the above env
+```
+pip install -r requirements.txt
+```
+- [ ] create a `database.json` file with the contents
+```json
+{
+    "1234": true
+}
+```
+- [ ] run the server with
+```sh
+python server.py --host 0.0.0.0 --port 9000 --database-path database.json
+```
+- [ ] change `reader.ino` to use a real wifi network and password
+- [ ] change `reader.ino` to point to the ip address of your server, you can
+get your server's network ip address with `ifconfig` on Unix or `ipconfig /all`
+on Windows cmd
+- [ ] run `reader.ino` on an ESP32, watch server logs to ensure the device
+reaches the server correctly
