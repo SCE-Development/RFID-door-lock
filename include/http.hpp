@@ -203,7 +203,7 @@ http::error http::get_status_reason(char * output_buffer, size_t size, unsigned 
 
 
 
-http::error get_next_header(char * key, size_t key_size, char * value, size_t value_size, unsigned long timeout, WiFiClient& client) {
+http::error http::get_next_header(char * key, size_t key_size, char * value, size_t value_size, unsigned long timeout, WiFiClient& client) {
   int i = 0;
   char curr = 0, second_curr = 0;
 
