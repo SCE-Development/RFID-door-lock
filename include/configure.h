@@ -31,7 +31,7 @@
  * @brief This should be the ip to the backend server
  * 
  */
-#define SERVER_IP IPAddress(142,251,46,238) // This points to google at the moment.
+#define SERVER_IP IPAddress(172,20,10,2) 
 
 
 /**
