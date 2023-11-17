@@ -127,6 +127,19 @@ void display_error() {
   display.display();
 }
 
+void display_auth_error() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.print("Couldn't auth");
+  display.setTextSize(1);
+  display.setCursor(0, 17);
+  display.print("Try again in three seconds");
+  display.display();
+}
+
 void init_display() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 }
+

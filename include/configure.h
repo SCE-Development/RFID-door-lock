@@ -39,3 +39,5 @@
  * 
  */
 #define RESPONSE_BUFFER_SIZE 64
+
+#define DOOR_LOCK_PIN 2

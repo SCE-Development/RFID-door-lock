@@ -1,6 +1,5 @@
 /**
  * TODO we could hook up the serial to the server (Write serial output to a server connection)
- * TODO Maybe split display code into a seperate header file
  * TODO maybe wait for user to remove card before performing authentication.
  */
 
@@ -49,46 +48,6 @@ bool init_wifi() {
   }
 }
 
-
-
-
-/**
- * Make a request to the server.
-*/
-int query_server(int num) {
-  WiFiClient client;
-  IPAddress server = SERVER_IP;
-  if(!client.connect(server, 80)) {
-    Serial.println("Could not connect to server!");
-    delay(1000);
-    return -1;
-  }
-
-
-  client.write(REQUEST_STRING);
-
-  Serial.println("----- REQUEST -----");
-  Serial.println("----- SERVER RESPONSE ----");
-
-  // HTTP/1.1 200 OK
-  // [version] [status code] [status reason]
-  char buf[RESPONSE_BUFFER_SIZE];
-  int status_code = 0;
-
-  http::get_version(buf,sizeof(buf), 1000, client);
-  Serial.print("HTTP Version: "); Serial.print(buf);
-  http::get_status_code(status_code, buf, sizeof(buf), 1000, client);
-  Serial.print("\nStatus code: "); Serial.println(buf);
-  http::get_status_reason(buf, sizeof(buf), 1000, client);
-  Serial.print("Status Reason: "); Serial.println(buf);
-  
-  Serial.println("----- END SERVER RESPONSE -----");
-
-  return status_code;
-}
-
-
-
 /**
  * Initialize PN532
  * returns false on failure.
@@ -115,6 +74,7 @@ bool init_pn532() {
 void setup() {
   Serial.begin(115200);
   Serial.println("Initializing...");
+  pinMode(DOOR_LOCK_PIN, OUTPUT);
 
   init_display();
   display_init_status("Initializing lock...");
@@ -125,8 +85,6 @@ void setup() {
   init_wifi();
   display_init_status("Finished init!");
   delay(5000);
-
-  // query_server(0);
 }
 
 struct card_info {
@@ -141,6 +99,15 @@ enum card_error {
   pn532_error=-1,
   invalid_card_type=-2,
 };
+
+bool attempt_read_page(uint8_t page, uint8_t * buffer, int retries) {
+  for(int i = 0; i < retries; i++) {
+    bool success = nfc.mifareultralight_ReadPage(i, buffer);
+    if(success) return true;
+    delay(10);
+  }
+  return false;
+}
 
 card_error read_card(card_info& card) {
 
@@ -177,7 +144,7 @@ card_error read_card(card_info& card) {
 
   Serial.println("Reading pages");
   for(int i = 0; i < (sizeof(card.data) / 4); i ++) {
-    success = nfc.mifareultralight_ReadPage (i, card.data + i * 4);
+    success = attempt_read_page(i, card.data + i * 4, 15);
     if(!success) {
       Serial.print("Error reading page ");
       Serial.println(i, DEC);
@@ -295,7 +262,18 @@ auth_result authenticate(card_info& card) {
   return auth_result::auth_reject;
 }
 
+void unlock_door() {
+  digitalWrite(DOOR_LOCK_PIN, HIGH);
+
+}
+
+void lock_door() {
+  digitalWrite(DOOR_LOCK_PIN, LOW);
+}
+
 void loop() {
+
+  lock_door();
   display_ready();
   Serial.println("Scanning for card...");
   
@@ -304,6 +282,7 @@ void loop() {
   if(read_card(card) != card_error::ok) {
     /// error.
     Serial.println("Failed to read card.");
+    lock_door();
     delay(5000);
     return;
   }
@@ -314,13 +293,16 @@ void loop() {
   case auth_success:
 
     // Fire off the MOSFET and let em in.
+    unlock_door();
     display_auth_success();
     break;
   case auth_reject:
+    lock_door();
     display_auth_fail();
     break;
   case auth_error:
-    display_error();
+    lock_door();
+    display_auth_error();
     break;
   }
 
