@@ -1,58 +1,133 @@
 #include <HTTPClient.h>
-#include <PN532.h>
-#include <PN532_I2C.h>
+#include <MFRC522.h>
+#include <SPI.h>
 #include <WiFi.h>
-#include <Wire.h>
 
-const char *ssid = "your_wifi_network_name";
-const char *password = "your_wifi_network_password";
+#define SS_PIN 5
+#define RST_PIN 0
+#define BUTTON_PIN 15
+#define ADD_LED_PIN 4
+#define DOOR_PIN 16
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+MFRC522::MIFARE_Key key;
+
+void LOG_INFO(const String &msg) {
+  Serial.println("[" + String(millis()) + "] " + msg);
+}
+
+const String ssid = "SSID";
+const String password = "PASSWORD";
+volatile bool flag = false;       // Thread-safe flag
+unsigned long flagStartTime = 0;  // Stores the time when the flag was set
+
+bool door_active = false;            // Track whether the pin is HIGH
+unsigned long door_unlocked_at = 0;  // Time when the pin was set HIGH
 
 void setup() {
   Serial.begin(115200);
+  pinMode(ADD_LED_PIN, OUTPUT);
+  pinMode(DOOR_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  Serial.printf("Connecting to %s ", ssid);
+  LOG_INFO("Connecting to " + ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
   }
-  Serial.print("Connected to WiFi network with IP Address: ");
-  Serial.println(WiFi.localIP());
+  LOG_INFO("Connected to WiFi network with IP Address: " +
+           WiFi.localIP().toString());
+  SPI.begin();      // Init SPI bus
+  rfid.PCD_Init();  // Init MFRC522
+
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
+  }
 }
 
-bool verify_card_over_https(int first_four_card_bytes) {
-  char url_buffer[50];
+void CheckIfAddButtonPressed() {
+  int high_or_low = LOW;
+  if (flag) {
+    high_or_low = HIGH;
+  }
+  if (digitalRead(BUTTON_PIN) == LOW && !flag) {
+    flag = true;
+    flagStartTime = millis();
+    LOG_INFO("Entering ADD_CARD state");
+    digitalWrite(ADD_LED_PIN, HIGH);
+  }
+
+  // Reset flag after 30 seconds
+  if (flag && millis() - flagStartTime >= 30000) {
+    flag = false;
+    LOG_INFO("Exiting ADD_CARD state due to timeout");
+    digitalWrite(ADD_LED_PIN, LOW);
+  }
+}
+
+bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
+  String card_bytes = "";
+  for (byte i = 0; i < bufferSize; i++) {
+    if (buffer[i] < 0x10) {
+      card_bytes += "0";
+    }
+    card_bytes += buffer[i];
+  }
+  LOG_INFO(card_bytes);
+
+  String url =
+      "https://sce.sjsu.edu/api/OfficeAccessCard/verify?cardBytes=";
   // the below sprintf assumes first_four_card_bytes when converted to a char
   // is at most 12 characters long (4 byte max number is 255, 3 chars * 4 bytes)
-  sprintf(url_buffer, "http://192.168.1.231:9000/verify?data=%d",
-          first_four_card_bytes);
+  url += card_bytes;
+  if (flag) {
+    url += "&add=1";
+  }
   HTTPClient http;
-
-  http.begin(url_buffer);
+  http.begin(url);
+  http.addHeader("X-API-Key", "NOTHING_REALLY");
 
   int httpResponseCode = http.GET();
   http.end();
-  return httpResponseCode == 200;
+  LOG_INFO("Server responded with code " + (String)httpResponseCode);
+  bool response_is_ok = httpResponseCode == 200;
+  if (response_is_ok && flag) {
+    LOG_INFO("Exiting ADD_CARD state due to 200 response");
+    digitalWrite(ADD_LED_PIN, LOW);
+    flag = false;
+  }
+  return response_is_ok;
+}
+
+void UnlockDoor() {
+  digitalWrite(DOOR_PIN, HIGH);
+  delay(15000);
+  digitalWrite(DOOR_PIN, LOW);
 }
 
 void loop() {
-  delay(1000);
-  // below is just like `uint8_t fake_card_data[32]`
-  uint8_t fake_card_data[] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                              12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                              23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
-  int card_data_as_int = 0;
-  // in RFID-door-lock.ino:109 we only print out the first four bytes, maybe
-  // thats all we need to verify?
-  // The below loop stores the first four bytes in an int variable
-  for (int i = 0; i < 4; i++) {
-    card_data_as_int *= 10;
-    card_data_as_int += (int)fake_card_data[i];
+  CheckIfAddButtonPressed();
+  if (!rfid.PICC_IsNewCardPresent()) return;
+
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
+  LOG_INFO(rfid.PICC_GetTypeName(piccType));
+
+  if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&
+      piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
+      piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
+    LOG_INFO("Your tag is not of type MIFARE Classic.");
+    return;
   }
-  bool result = verify_card_over_https(card_data_as_int);
-  if (result) {
-    Serial.println("Card is valid, door opens");
-  } else {
-    Serial.println("Card invalid, locked out");
+
+  LOG_INFO("A new card has been detected.");
+  bool valid_card = VerifyCardOverHttps(rfid.uid.uidByte, rfid.uid.size);
+  if (valid_card) {
+    UnlockDoor();
   }
+  rfid.PICC_HaltA();
+
+  rfid.PCD_StopCrypto1();
 }
