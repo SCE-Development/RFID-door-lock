@@ -17,8 +17,8 @@ void LOG_INFO(const String &msg) {
   Serial.println("[" + String(millis()) + "] " + msg);
 }
 
-const String ssid = "SSID";
-const String password = "PASSWORD";
+const String ssid = "SJSU_guest";
+const String password = "";
 volatile bool flag = false;       // Thread-safe flag
 unsigned long flagStartTime = 0;  // Stores the time when the flag was set
 
@@ -101,8 +101,13 @@ bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
 }
 
 void UnlockDoor() {
+  for (int i = 0; i < 20; i++ ) {
+    digitalWrite(DOOR_PIN, HIGH);
+    delay(300);
+    digitalWrite(DOOR_PIN, LOW);
+  }
   digitalWrite(DOOR_PIN, HIGH);
-  delay(15000);
+  delay(9000);
   digitalWrite(DOOR_PIN, LOW);
 }
 
