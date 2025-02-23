@@ -19,11 +19,11 @@ void LOG_INFO(const String &msg) {
 
 const String ssid = "SJSU_guest";
 const String password = "";
-volatile bool flag = false;       // Thread-safe flag
-unsigned long flagStartTime = 0;  // Stores the time when the flag was set
+volatile bool flag = false;
+unsigned long flagStartTime = 0;
 
-bool door_active = false;            // Track whether the pin is HIGH
-unsigned long door_unlocked_at = 0;  // Time when the pin was set HIGH
+bool door_active = false;
+unsigned long door_unlocked_at = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -76,10 +76,7 @@ bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
   }
   LOG_INFO(card_bytes);
 
-  String url =
-      "https://sce.sjsu.edu/api/OfficeAccessCard/verify?cardBytes=";
-  // the below sprintf assumes first_four_card_bytes when converted to a char
-  // is at most 12 characters long (4 byte max number is 255, 3 chars * 4 bytes)
+  String url = "https://sce.sjsu.edu/api/OfficeAccessCard/verify?cardBytes=";
   url += card_bytes;
   if (flag) {
     url += "&add=1";
@@ -101,7 +98,14 @@ bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
 }
 
 void UnlockDoor() {
-  for (int i = 0; i < 20; i++ ) {
+  // This for loop will be removed, it was meant to
+  // retry unlocking the door to when it was being
+  // supplied with a voltage too low (5V). The door can
+  // be unlocked with 12V and no longer needs this loop.
+  //
+  // We will remove the loop after verifying that the door
+  // unlocks reliably at 12V without the quick retries.
+  for (int i = 0; i < 20; i++) {
     digitalWrite(DOOR_PIN, HIGH);
     delay(300);
     digitalWrite(DOOR_PIN, LOW);
