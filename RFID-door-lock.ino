@@ -1,126 +1,138 @@
-#include <Wire.h>
-#include <PN532_I2C.h>
-#include <PN532.h>
-PN532_I2C pn532i2c(Wire);
-PN532 nfc(pn532i2c);	
+#include <HTTPClient.h>
+#include <MFRC522.h>
+#include <SPI.h>
+#include <WiFi.h>
 
-void setup(void) {
+#define SS_PIN 5
+#define RST_PIN 0
+#define BUTTON_PIN 15
+#define ADD_LED_PIN 4
+#define DOOR_PIN 16
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+MFRC522::MIFARE_Key key;
+
+void LOG_INFO(const String &msg) {
+  Serial.println("[" + String(millis()) + "] " + msg);
+}
+
+const String ssid = "SJSU_guest";
+const String password = "";
+volatile bool flag = false;       // Thread-safe flag
+unsigned long flagStartTime = 0;  // Stores the time when the flag was set
+
+bool door_active = false;            // Track whether the pin is HIGH
+unsigned long door_unlocked_at = 0;  // Time when the pin was set HIGH
+
+void setup() {
   Serial.begin(115200);
-  Serial.println("Initializing...");
+  pinMode(ADD_LED_PIN, OUTPUT);
+  pinMode(DOOR_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  nfc.begin();
-
-  uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print("Didn't find PN53x board \n");
-    Serial.print("Restarting in 10 seconds \n");
-    delay(10000);
-    Serial.print("Standby");
-    ESP.restart();
+  LOG_INFO("Connecting to " + ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
   }
-  // Got ok data, print it out!
-  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
-  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
-  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  
-  // configure board to read RFID tags
-  nfc.SAMConfig();
+  LOG_INFO("Connected to WiFi network with IP Address: " +
+           WiFi.localIP().toString());
+  SPI.begin();      // Init SPI bus
+  rfid.PCD_Init();  // Init MFRC522
 
-}
-
-
-void loop(void) {
-  Serial.println("Scanning for card...");
-  
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
-    
-  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
-  // 'uid' will be populated with the UID, and uidLength will indicate
-  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-  
-  if (success) {
-    // Display some basic information about the card
-    Serial.println("Found an ISO14443A card");
-    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-    Serial.print("  UID Value: ");
-    nfc.PrintHex(uid, uidLength);
-    Serial.println("");
-    
-    if (uidLength == 4)
-    {
-      // We probably have a Mifare Classic card ... 
-      Serial.println("Card Details: Mifare Classic Card (4 byte UID)");
-	  
-      // Now we need to try to authenticate it for read/write access
-      // Try with the factory default KeyA: 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
-      Serial.println("Trying to authenticate block 4 with default KEYA value");
-      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-	  
-	  // Start with block 4 (the first block of sector 1) since sector 0
-	  // contains the manufacturer data and it's probably better just
-	  // to leave it alone unless you know what you're doing
-      success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, 4, 0, keya);
-	  
-      if (success)
-      {
-        Serial.println("Sector 1 (Blocks 4..7) has been authenticated");
-        uint8_t data[16];
-		
-        // If you want to write something to block 4 to test with, uncomment
-		// the following line and this text should be read back in a minute
-        // data = { 'a', 'd', 'a', 'f', 'r', 'u', 'i', 't', '.', 'c', 'o', 'm', 0, 0, 0, 0};
-        // success = nfc.mifareclassic_WriteDataBlock (4, data);
-
-        // Try to read the contents of block 4
-        success = nfc.mifareclassic_ReadDataBlock(4, data);
-		
-        if (success)
-        {
-          // Data seems to have been read ... spit it out
-          Serial.println("Reading Block 4:");
-          nfc.PrintHexChar(data, 16);
-          Serial.println("");
-		  
-          // Wait a bit before reading the card again
-          delay(1000);
-        }
-        else
-        {
-          Serial.println("Ooops ... unable to read the requested block.  Try another key?");
-        }
-      }
-      else
-      {
-        Serial.println("Ooops ... authentication failed: Try another key?");
-      }
-    }
-    
-    if (uidLength == 7)
-    {
-      // We probably have a Mifare Ultralight card ...
-      Serial.println("Card Details: Mifare Ultralight Tag (7 byte UID)");
-	  
-      // Try to read the first general-purpose user page (#4)
-      Serial.println("Reading page 4");
-      uint8_t data[32];
-      success = nfc.mifareultralight_ReadPage (4, data);
-      if (success)
-      {
-        // Data seems to have been read ... spit it out
-        nfc.PrintHexChar(data, 4);
-        Serial.println("");
-		
-        // Wait a bit before reading the card again
-        delay(1000);
-      }
-      else
-      {
-        Serial.println("Ooops ... unable to read the requested page!?");
-      }
-    }
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
   }
 }
 
+void CheckIfAddButtonPressed() {
+  int high_or_low = LOW;
+  if (flag) {
+    high_or_low = HIGH;
+  }
+  if (digitalRead(BUTTON_PIN) == LOW && !flag) {
+    flag = true;
+    flagStartTime = millis();
+    LOG_INFO("Entering ADD_CARD state");
+    digitalWrite(ADD_LED_PIN, HIGH);
+  }
+
+  // Reset flag after 30 seconds
+  if (flag && millis() - flagStartTime >= 30000) {
+    flag = false;
+    LOG_INFO("Exiting ADD_CARD state due to timeout");
+    digitalWrite(ADD_LED_PIN, LOW);
+  }
+}
+
+bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
+  String card_bytes = "";
+  for (byte i = 0; i < bufferSize; i++) {
+    if (buffer[i] < 0x10) {
+      card_bytes += "0";
+    }
+    card_bytes += buffer[i];
+  }
+  LOG_INFO(card_bytes);
+
+  String url =
+      "https://sce.sjsu.edu/api/OfficeAccessCard/verify?cardBytes=";
+  // the below sprintf assumes first_four_card_bytes when converted to a char
+  // is at most 12 characters long (4 byte max number is 255, 3 chars * 4 bytes)
+  url += card_bytes;
+  if (flag) {
+    url += "&add=1";
+  }
+  HTTPClient http;
+  http.begin(url);
+  http.addHeader("X-API-Key", "NOTHING_REALLY");
+
+  int httpResponseCode = http.GET();
+  http.end();
+  LOG_INFO("Server responded with code " + (String)httpResponseCode);
+  bool response_is_ok = httpResponseCode == 200;
+  if (response_is_ok && flag) {
+    LOG_INFO("Exiting ADD_CARD state due to 200 response");
+    digitalWrite(ADD_LED_PIN, LOW);
+    flag = false;
+  }
+  return response_is_ok;
+}
+
+void UnlockDoor() {
+  for (int i = 0; i < 20; i++ ) {
+    digitalWrite(DOOR_PIN, HIGH);
+    delay(300);
+    digitalWrite(DOOR_PIN, LOW);
+  }
+  digitalWrite(DOOR_PIN, HIGH);
+  delay(9000);
+  digitalWrite(DOOR_PIN, LOW);
+}
+
+void loop() {
+  CheckIfAddButtonPressed();
+  if (!rfid.PICC_IsNewCardPresent()) return;
+
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
+  LOG_INFO(rfid.PICC_GetTypeName(piccType));
+
+  if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&
+      piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
+      piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
+    LOG_INFO("Your tag is not of type MIFARE Classic.");
+    return;
+  }
+
+  LOG_INFO("A new card has been detected.");
+  bool valid_card = VerifyCardOverHttps(rfid.uid.uidByte, rfid.uid.size);
+  if (valid_card) {
+    UnlockDoor();
+  }
+  rfid.PICC_HaltA();
+
+  rfid.PCD_StopCrypto1();
+}
