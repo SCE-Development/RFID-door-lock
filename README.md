@@ -1,67 +1,32 @@
-<p align="center" style="font-size:48px;"> SCE  - RFID Door Lock </p>
+# RFID Door Lock
+## Parts list
+### Reading the card
+- Mifare RC522 RF IC Card Sensor Module [amazon link](https://www.amazon.com/HiLetgo-3pcs-RFID-Kit-Raspberry/dp/B07VLDSYRW)
+- ESP32 Development Board [amazon link](https://www.amazon.com/Development-AYWHP-ESP-WROOM-32-Bluetooth-Compatible/dp/B0DG8LRV2F)
+- RFID capable card (the above RFID Sensor amazon link includes with purchase)
 
-<div align=center > 
+### Powering the door lock
+- IRLZ44N Power Mosfet [amazon link](https://www.amazon.com/ALLECIN-IRLZ44N-Transistors-IRLZ44NPBF-Mosfets/dp/B0CBKH4XGL)
+- 10k Ohm 1/2 W through hole Resistor
 
-[![Status](https://img.shields.io/badge/Status-Active-green)]()
-[![Espressif](https://img.shields.io/badge/ESP32-grey?logo=espressif)](https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/)
-[![Arduino](https://img.shields.io/badge/Arduino-grey?logo=arduino)](https://www.arduino.cc/)
-[![NXP](https://img.shields.io/badge/NXP-grey?logo=nxp)](https://www.nxp.com/docs/en/nxp/data-sheets/PN532_C1.pdf)
+### The button for adding a card
+- 5mm LED Light Diodes
+- 220 Ohm 1/2 W through hole Resistor
+- Breadboard button
 
-</div>
+## Running the Server
+### Arduino IDE - Board
+- Go to `tools > board manager` and search for `esp32`
+- Install `esp32` by `Espressif Systems`, specifically version 3.1.0
+- Set the board in `tools` as `ESP32-WROOM-DA Module`
 
+### Arduino IDE - Library
+- Go to `tools > library`, install `MFRC522` by `Github Community`, version 1.4.11
 
-## Table of Contents
-- General Description
-- Project Setup
-- Component Selection
-    - ESP32C3
-    - PN532
-    - OLED Display
-- Firmware
-
-
-### General Description
-- Using RFID Enabled cards or phone emulators, we can manage access to the SCE office using the reader installed in the window. Based on [Bradley's Prototype](https://github.com/bradokajima/RFID-Door), this project takes that concept and makes it a flexible wifi enabled tool for club use. 
-
----
-### Project Setup
-- Install [PlatformIO](https://platformio.org/platformio-ide) into your VSCode
-- You will also need to install the drivers for the SiLabs CP210x Drivers to communicate with the ESP32 over UART 
-    - [CP210X Drivers](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads)
-- Libraries: 
-    - [PN532](https://github.com/elechouse/PN532)
-    - [HTTP Client](https://github.com/amcewen/HttpClient)
-
-
----
-### Component Selection
-
-ESP32
-- SoC with wifi capability for HTTP requests
-
-PN532
-- RFID/NFC Module for phone and card reading
-
-OLED
-- Genaric 0x3C 128x32 OLED display for user feedback
-
----
-### Firmware 
-#### 2 Primary functions
-<details>
-    <summary> Reading NFC Card</summary>
-
-    When an NFC Card is present, take the UID of the card that has been read and attach it to an HTTP Post request to the API. Handle the response accordingly in the access feedback section. 
-
-</details>
-
-<details>
-    <summary> Access Feedback</summary>
-
-    Based on the response from the HTTP request when a card is present, have the OLED display read one of two values. Either "Granted" or "Denied"
-
-    - In the access granted case, send power to the relevant pin to trigger the MOSFET that will open the door, and display "Granted" onto the OLED display
-
-    - In the access denied, display the "Denied" onto the OLED Display. 
-
-</details>
+### Code
+- [ ] change the API KEY from `NOTHING_REALLY` to the key used by
+ the card verification server
+- [ ] change the `ssid` and `password` variables to the appropriate
+ values of the network that we need to connect to
+- [ ] (optional) if the code does not compile, consider following
+ [miguelbalboa/rfid#371](https://github.com/miguelbalboa/rfid/issues/371#issuecomment-1740021871)
