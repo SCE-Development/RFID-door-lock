@@ -1,6 +1,4 @@
 # RFID Door Lock
-This tool reads RFID cards using 
-
 ## Parts list
 ### Reading the card
 - Mifare RC522 RF IC Card Sensor Module [amazon link](https://www.amazon.com/HiLetgo-3pcs-RFID-Kit-Raspberry/dp/B07VLDSYRW)
