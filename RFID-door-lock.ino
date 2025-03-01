@@ -106,8 +106,17 @@ void UnlockDoor() {
   digitalWrite(DOOR_PIN, LOW);
 }
 
+void MaybeReconnectWiFi() {
+  if (WiFi.status() != WL_CONNECTED) {
+    LOG_INFO("WiFi not connected, attempting to reconnect...");
+    WiFi.reconnect();
+    delay(3000);
+  }
+}
+
 void loop() {
   CheckIfAddButtonPressed();
+  MaybeReconnectWiFi();
   if (!rfid.PICC_IsNewCardPresent()) return;
 
   if (!rfid.PICC_ReadCardSerial()) return;
