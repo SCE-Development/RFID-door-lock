@@ -98,20 +98,8 @@ bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
 }
 
 void UnlockDoor() {
-  // This for loop will be removed, it was meant to
-  // retry unlocking the door to when it was being
-  // supplied with a voltage too low (5V). The door can
-  // be unlocked with 12V and no longer needs this loop.
-  //
-  // We will remove the loop after verifying that the door
-  // unlocks reliably at 12V without the quick retries.
-  for (int i = 0; i < 20; i++) {
-    digitalWrite(DOOR_PIN, HIGH);
-    delay(300);
-    digitalWrite(DOOR_PIN, LOW);
-  }
   digitalWrite(DOOR_PIN, HIGH);
-  delay(9000);
+  delay(5000);
   digitalWrite(DOOR_PIN, LOW);
 }
 
