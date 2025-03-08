@@ -8,6 +8,9 @@
 #define BUTTON_PIN 15
 #define ADD_LED_PIN 4
 #define DOOR_PIN 16
+// arbitrary constraint on bytes, just so the esp32 doesn't crash
+// when reading some card that has a huge number of bytes.
+#define MAX_SIZE_BYTES 7
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 
@@ -112,14 +115,11 @@ void loop() {
   MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
   LOG_INFO(rfid.PICC_GetTypeName(piccType));
 
-  if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&
-      piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
-      piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
-    LOG_INFO("Your tag is not of type MIFARE Classic.");
+  LOG_INFO("A new card has been detected.");
+  if (rfid.uid.size > MAX_SIZE_BYTES) {
+    LOG_INFO("Card exceeds max size bytes, skipping verification");
     return;
   }
-
-  LOG_INFO("A new card has been detected.");
   bool valid_card = VerifyCardOverHttps(rfid.uid.uidByte, rfid.uid.size);
   if (valid_card) {
     UnlockDoor();
