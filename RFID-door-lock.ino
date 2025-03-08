@@ -118,6 +118,7 @@ void loop() {
   LOG_INFO("A new card has been detected.");
   if (rfid.uid.size > MAX_SIZE_BYTES) {
     LOG_INFO("Card exceeds max size bytes, skipping verification");
+    return;
   }
   bool valid_card = VerifyCardOverHttps(rfid.uid.uidByte, rfid.uid.size);
   if (valid_card) {
