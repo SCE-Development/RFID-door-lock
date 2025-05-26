@@ -30,3 +30,41 @@
  values of the network that we need to connect to
 - [ ] (optional) if the code does not compile, consider following
  [miguelbalboa/rfid#371](https://github.com/miguelbalboa/rfid/issues/371#issuecomment-1740021871)
+
+## Using the Python Developer Tool
+### Setup
+- **Create a Python Virtual Environment**: `python3 -m venv .venv`
+- **Activate the Virtual Environment**:  
+On Mac/Linux: `source .venv/bin/activate`  
+On Windows: `.venv\Scripts\activate`  
+- Install dependencies: `cd backend && pip install -r requirements.txt`  
+### Code
+- Ensure you are in the `backend/` directory; if not, run `cd backend` from the project's root directory.
+- **To check if a card exists**: 
+```
+python mock_card_reader.py \ 
+    --base-url [base_url] \
+    --port [port] \
+    --card-bytes [card_bytes] \
+    --api-key [api_key]
+```
+- **Example**: 
+```
+python mock_card_reader.py \ 
+    --base-url localhost \
+    --port 8080 \
+    --card-bytes 12345 \
+    --api-key TESTAPIKEY123
+```
+- **To add a card**: same command as to check if a card exists, but add the `--add` flag to the end:  
+```
+python mock_card_reader.py \ 
+    --base-url localhost \
+    --port 8080 \
+    --card-bytes 12345 \
+    --api-key TESTAPIKEY123 \
+    --add
+```
+- Note that you may need to use `python3` instead of `python` depending on your system specifications.
+- The required fields are `--card-bytes` and `--api-key`. `--base-url` defaults to localhost, and `--port` defaults to 8080 if not provided.
+- Once the arguments are parsed, the tool will send an HTTP request to the server and return with the response you desire.

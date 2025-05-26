@@ -1,2 +1,5 @@
 *.json
 .env
+
+.python-version
+__pycache__
