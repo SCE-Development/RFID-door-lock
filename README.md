@@ -30,3 +30,14 @@
  values of the network that we need to connect to
 - [ ] (optional) if the code does not compile, consider following
  [miguelbalboa/rfid#371](https://github.com/miguelbalboa/rfid/issues/371#issuecomment-1740021871)
+
+## Using the Python Developer Tool
+### Setup
+- Install dependencies: `cd backend && pip install -r requirements.txt`  
+### Code
+- From within the backend directory, run the following command, replacing the fields within brackets with your desired values:  
+`python mock_card_reader.py --base-url [base_url] --port [port] --card-bytes [card_bytes] --api-key [api_key]`
+- Note that you may need to use `python3` instead of `python` depending on your system specifications.
+- The required fields are `--base-url`, `--card-bytes`, and `--api-key`. If `--port` is not provided, it will default to port 8080.
+- The flag `--add` can be added to the end of the request if the user wants to add the card to the database. If not, the script will simply check if the card exists in the database already.
+- Once the arguments are parsed, the tool will send an HTTP request to the server and return with the response you desire.
