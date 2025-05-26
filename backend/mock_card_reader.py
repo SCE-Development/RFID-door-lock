@@ -40,9 +40,9 @@ def get_args():
 
 def main(base_url, port, card_bytes, api_key, add):
     api_url = f'http://{base_url}:{port}/api/OfficeAccessCard/verify'
-    data = {'card_bytes': card_bytes, 'add': add}
+    data = {'cardBytes': card_bytes, 'add': add}
     logger.info(f'Request payload: {data}')
-    response = requests.post(url=api_url, json=data, headers={'x-api-key': api_key})
+    response = requests.get(url=api_url, params=data, headers={'x-api-key': api_key})
     logger.info(f'Response received from {api_url}')
     logger.info(f'Response: {response.text}')
 
