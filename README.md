@@ -33,11 +33,38 @@
 
 ## Using the Python Developer Tool
 ### Setup
+- **Create a Python Virtual Environment**: `python3 -m venv .venv`
+- **Activate the Virtual Environment**:  
+On Mac/Linux: `source .venv/bin/activate`  
+On Windows: `.venv\Scripts\activate`  
 - Install dependencies: `cd backend && pip install -r requirements.txt`  
 ### Code
-- From within the backend directory, run the following command, replacing the fields within brackets with your desired values:  
-`python mock_card_reader.py --base-url [base_url] --port [port] --card-bytes [card_bytes] --api-key [api_key]`
+- Ensure you are in the `backend/` directory; if not, run `cd backend` from the project's root directory.
+- **To check if a card exists**: 
+```
+python mock_card_reader.py \ 
+    --base-url [base_url] \
+    --port [port] \
+    --card-bytes [card_bytes] \
+    --api-key [api_key]
+```
+- **Example**: 
+```
+python mock_card_reader.py \ 
+    --base-url localhost \
+    --port 8080 \
+    --card-bytes 12345 \
+    --api-key TESTAPIKEY123
+```
+- **To add a card**: same command as to check if a card exists, but add the `--add` flag to the end:  
+```
+python mock_card_reader.py \ 
+    --base-url localhost \
+    --port 8080 \
+    --card-bytes 12345 \
+    --api-key TESTAPIKEY123 \
+    --add
+```
 - Note that you may need to use `python3` instead of `python` depending on your system specifications.
 - The required fields are `--base-url`, `--card-bytes`, and `--api-key`. If `--port` is not provided, it will default to port 8080.
-- The flag `--add` can be added to the end of the request if the user wants to add the card to the database. If not, the script will simply check if the card exists in the database already.
 - Once the arguments are parsed, the tool will send an HTTP request to the server and return with the response you desire.
