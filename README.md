@@ -66,5 +66,5 @@ python mock_card_reader.py \
     --add
 ```
 - Note that you may need to use `python3` instead of `python` depending on your system specifications.
-- The required fields are `--base-url`, `--card-bytes`, and `--api-key`. If `--port` is not provided, it will default to port 8080.
+- The required fields are `--card-bytes` and `--api-key`. `--base-url` defaults to localhost, and `--port` defaults to 8080 if not provided.
 - Once the arguments are parsed, the tool will send an HTTP request to the server and return with the response you desire.
