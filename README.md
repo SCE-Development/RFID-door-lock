@@ -39,7 +39,6 @@ On Mac/Linux: `source .venv/bin/activate`
 On Windows: `.venv\Scripts\activate`  
 - Install dependencies: `cd backend && pip install -r requirements.txt`  
 ### Code
-- Ensure you are in the `backend/` directory; if not, run `cd backend` from the project's root directory.
 - **To check if a card exists**: 
 ```
 python mock_card_reader.py \ 
