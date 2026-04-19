@@ -27,6 +27,7 @@ unsigned long flagStartTime = 0;
 
 bool door_active = false;
 unsigned long door_unlocked_at = 0;
+unsigned long wifi_last_checked_at = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -70,6 +71,7 @@ void CheckIfAddButtonPressed() {
 }
 
 bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
+  if (WiFi.status() != WL_CONNECTED) return false;
   String card_bytes = "";
   for (byte i = 0; i < bufferSize; i++) {
     if (buffer[i] < 0x10) {
@@ -85,6 +87,7 @@ bool VerifyCardOverHttps(byte *buffer, byte bufferSize) {
     url += "&add=1";
   }
   HTTPClient http;
+  http.setTimeout(5000);
   http.begin(url);
   http.addHeader("X-API-Key", "NOTHING_REALLY");
 
@@ -107,10 +110,14 @@ void UnlockDoor() {
 }
 
 void MaybeReconnectWiFi() {
-  if (WiFi.status() != WL_CONNECTED) {
-    LOG_INFO("WiFi not connected, attempting to reconnect...");
-    WiFi.reconnect();
-    delay(3000);
+  // Only check every 10 seconds to avoid spamming the stack
+  if (millis() - wifi_last_checked_at > 10000) { 
+    if (WiFi.status() != WL_CONNECTED) {
+      LOG_INFO("WiFi connection lost. Re-initializing...");
+      WiFi.disconnect();
+      WiFi.begin(ssid, password);
+    }
+    wifi_last_checked_at = millis();
   }
 }
 
